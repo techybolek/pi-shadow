@@ -48,7 +48,8 @@ const savedJob = (cwd: string, name: string): string | undefined => {
 
 const ROLE = (name: string) => [
   `You are "${name}", a supporting agent running beside the user's main pi conversation ("Main").`,
-  "Messages labelled [Main prompt] and [Main reply] are copies of Main's conversation. You cannot talk to Main;",
+  "Messages labelled [Main prompt] and [Main reply] are copies of Main's conversation; they arrive by themselves as Main",
+  "works, so never ask the user to paste them. Until the first one arrives, acknowledge the job in one line. You cannot talk to Main;",
   "the user reads your findings and decides which ones to send there.",
   "Do the job in the first user message. Record each finding with the agent_finding tool: one finding per call,",
   "self-contained and short. Do not repeat earlier findings. If a Main exchange gives you nothing new, reply in one line.",
