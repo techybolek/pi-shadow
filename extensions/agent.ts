@@ -55,7 +55,8 @@ const ROLE = (name: string, job: string) => [
   "anywhere else (files, the repository, /tmp, session folders) and never ask the user to paste it. You cannot talk to Main;",
   "the user reads your findings and decides which ones to send there.",
   "Record each finding with the agent_finding tool: one finding per call, self-contained and short. Do not repeat earlier",
-  "findings. If an exchange gives you nothing new, reply in one line. The user may also message you directly; answer them.",
+  "findings. If an exchange gives you nothing new, reply in one line. Never ask the user what to do: if the job is vague,",
+  "read it in the most useful way for Main's latest exchange. The user may also message you directly; answer them.",
   "Main's earlier conversation (before you opened) is NOT in your context. When a Main message refers to something you",
   "do not know, call main_history once (search a keyword, or get the last messages). If it has nothing, carry on without it;",
   "do not search anywhere else.",
@@ -67,10 +68,11 @@ const ROLE = (name: string, job: string) => [
 const HELP = `/agent: a supporting pi agent in a herdr pane beside this one (Main).
 
 Open
-  /agent <name> <job>             open a new agent with that job
-  /agent <name>                   open the saved agent agents/<name>/agent.md (only its "## Job" text is used)
-  /agent --model <m> <name> ...   choose the model (default ${DEFAULT_MODEL}); any pi --model pattern
-  /agent --pick <name> ...        choose the model from a picker of your logged-in models
+  /agent <job>                    open a new agent; everything you type is its job (named agent-1, agent-2, ...)
+  /agent <saved>                  one word: the saved agent agents/<saved>/agent.md (only its "## Job" text is used)
+  /agent --name <n> <job>         choose the agent's name
+  /agent --model <m> <job>        choose the model (default ${DEFAULT_MODEL}); any pi --model pattern
+  /agent --pick <job>             choose the model from a picker of your logged-in models
   /agent                          list saved agents, open agents and usage
   /agent --help                   this guide
 
@@ -94,8 +96,8 @@ Delivery to Main
   you submit in Main (pi's "input" hook). Main's running reply and your unsent typing are not touched.
 
 Examples
-  /agent reviewer Watch for bugs in the code Main writes
-  /agent --model sonnet tester Suggest tests for each change
+  /agent monitor the main thread's replies for accuracy
+  /agent --name tests --model sonnet suggest a test for each change Main makes
   /agent docs                     (uses agents/docs/agent.md)
   /agent send main #1
 
@@ -274,31 +276,45 @@ export default function (pi: ExtensionAPI) {
       `Saved agents (${join(ctx.cwd, "agents")}/<name>/agent.md): ${saved.join(", ") || "none"}`,
       `Opened from this session: ${open.join(", ") || "none"}`,
       "",
-      "Usage: /agent [--model <m> | --pick] <name> [job]    /agent send main [#N]    /agent --help",
+      "Usage: /agent [--name <n>] [--model <m> | --pick] <job or saved agent>    /agent send main [#N]    /agent --help",
     ].join("\n"), "info");
   };
 
   const open = async (args: string[], ctx: any) => {
     let model = DEFAULT_MODEL;
     let pick = false;
+    let name = "";
     while (args[0]?.startsWith("--")) {
       const a = args.shift()!;
       if (a === "--pick") pick = true;
       else if (a === "--model") model = args.shift() ?? "";
       else if (a.startsWith("--model=")) model = a.slice(8);
+      else if (a === "--name") name = args.shift() ?? "";
+      else if (a.startsWith("--name=")) name = a.slice(7);
       else return ctx.ui.notify(`/agent: unknown option ${a}. See /agent --help.`, "warning");
     }
-    const [name, ...jobWords] = args;
     const fail = (m: string) => ctx.ui.notify(`/agent refused: ${m}`, "error");
     if (!model) return fail("--model needs a value");
-    if (!name) return fail("give an agent name. See /agent --help.");
-    if (!NAME_RE.test(name) || RESERVED.has(name)) return fail(`"${name}" is not a valid name (a-z, 0-9, _ or -, start with a letter; not "send")`);
-    let job = jobWords.join(" ").trim();
-    if (!job) {
-      const saved = savedJob(ctx.cwd, name);
-      if (saved === undefined) return fail(`no job given and no agents/${name}/agent.md`);
-      if (!saved) return fail(`agents/${name}/agent.md has no text under "## Job"`);
+    // Everything after the options is the job; one word alone means a saved agent.
+    let job = args.join(" ").trim();
+    if (!job) return fail("give a job, e.g. /agent check Main's replies for accuracy. See /agent --help.");
+    if (args.length === 1) {
+      const saved = savedJob(ctx.cwd, args[0]);
+      if (saved === undefined)
+        return fail(`no saved agent agents/${args[0]}/agent.md. A job needs more than one word, e.g. /agent check Main's replies for accuracy`);
+      if (!saved) return fail(`agents/${args[0]}/agent.md has no text under "## Job"`);
       job = saved;
+      name ||= args[0];
+    }
+    if (name && (!NAME_RE.test(name) || RESERVED.has(name)))
+      return fail(`"${name}" is not a valid name (a-z, 0-9, _ or -, start with a letter; not "send")`);
+    if (!name) {
+      // herdr agent names must be unique among live agents.
+      const r = await pi.exec("herdr", ["agent", "list"]);
+      const taken = new Set<string>(r.code === 0 ? (JSON.parse(r.stdout).result.agents ?? []).map((a: any) => a.name).filter(Boolean) : []);
+      let i = 1;
+      while (taken.has(`agent-${i}`) || (mainDir && existsSync(join(mainDir, "agents", `agent-${i}`)))) i++;
+      name = `agent-${i}`;
     }
     const pane = process.env.HERDR_PANE_ID;
     if (process.env.HERDR_ENV !== "1" || !pane) return fail("not running inside a herdr pane");
@@ -351,10 +367,10 @@ export default function (pi: ExtensionAPI) {
       else if (words[0] === "send" && words.length === 2 && isChild)
         opts = readJsonl<Finding>(join(CHILD_DIR!, "agents", CHILD_NAME!, "findings.jsonl"))
           .map((f) => item(`#${f.n}`, f.text.slice(0, 60)));
-      else if (!words.length || words.every((w, i) => w.startsWith("--") || words[i - 1] === "--model")) {
+      else if (!words.length || words.every((w, i) => w.startsWith("--") || words[i - 1] === "--model" || words[i - 1] === "--name")) {
         if (!words.length) opts.push(item("--help", "full guide"));
         if (!words.length && isChild) opts.push(item("send", "send a finding to Main: send main #N"));
-        opts.push(item("--model", `model (default ${DEFAULT_MODEL})`), item("--pick", "choose the model from a list"));
+        opts.push(item("--name", "name the agent (default agent-N)"), item("--model", `model (default ${DEFAULT_MODEL})`), item("--pick", "choose the model from a list"));
         opts.push(...savedAgents(cwd).map((n) => item(n, "saved agent")));
       }
       const hits = opts.filter((o) => o.label.startsWith(cur) && o.label !== cur);
