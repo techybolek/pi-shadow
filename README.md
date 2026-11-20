@@ -9,7 +9,8 @@ pi install ./pi-agent      # or a git source
 Then `/reload`. Needs pi inside a herdr pane (`HERDR_ENV=1`). Built against pi 1.5.2, herdr 0.9.3.
 
 ## Use
-- `/agent <name> <job>` / `/agent <name>` (saved: `agents/<name>/agent.md`, text under `## Job` only)
+- `/agent <job>`: everything after the options is the job; named `agent-N` unless `--name <n>`
+- `/agent <saved>`: one word opens `agents/<saved>/agent.md` (text under `## Job` only)
 - `--model <m>` (default `anthropic/claude-haiku-5-5`) or `--pick` for a picker
 - In the agent's pane: `/agent send main #2`, or `/agent send main` to pick with the arrow keys
 - `/agent` lists saved/open agents; `/agent --help` is the full guide. Argument hints show while typing.
