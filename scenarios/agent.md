@@ -20,4 +20,4 @@ View the new pane: its first user message is exactly "Flag any Main reply longer
 
 ## Agent opened before Main has any messages
 In Main, type /agent reviewer Check Main's replies for errors and press enter: Main shows "Opened agent".
-View the new pane and wait for the agent to finish: it replies in one line, its pane shows no bash, read or ls tool calls, and it does not mention any feed file, /tmp or replies such as "Canberra".
+View the new pane and wait for the agent to finish: its answer says it is waiting for Main, its pane shows no bash, read or ls tool calls, and it does not mention any feed file, /tmp or replies such as "Canberra".
