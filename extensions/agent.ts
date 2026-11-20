@@ -22,6 +22,7 @@ const RESERVED = new Set(["send"]);
 const CHILD_DIR = process.env.PI_AGENT_MAIN_DIR;
 const CHILD_NAME = process.env.PI_AGENT_NAME;
 const isChild = !!(CHILD_DIR && CHILD_NAME);
+const childJob = () => readFileSync(join(CHILD_DIR!, "agents", CHILD_NAME!, "job.md"), "utf8").trim();
 
 type Finding = { n: number; text: string };
 type Queued = { from: string; n: number; text: string };
@@ -46,14 +47,17 @@ const savedJob = (cwd: string, name: string): string | undefined => {
   return (end < 0 ? rest : rest.slice(0, end)).join("\n").trim();
 };
 
-const ROLE = (name: string) => [
-  `You are "${name}", a supporting agent running beside the user's main pi conversation ("Main").`,
+const ROLE = (name: string, job: string) => [
+  `You are "${name}", a supporting agent that monitors the user's main pi conversation ("Main") from now on.`,
   "Main's conversation reaches you ONLY as messages labelled [Main prompt] and [Main reply]; they arrive by themselves as Main",
-  "works. Never look for Main's conversation anywhere else: not in files, the repository, /tmp or session folders, and never",
-  "ask the user to paste it. Until the first [Main ...] message arrives, reply to the job in one line and use no tools. You cannot talk to Main;",
+  "works. Each [Main reply] is your cue to apply your standing job to that latest exchange. Never look for Main's conversation",
+  "anywhere else (files, the repository, /tmp, session folders) and never ask the user to paste it. You cannot talk to Main;",
   "the user reads your findings and decides which ones to send there.",
-  "Do the job in the first user message. Record each finding with the agent_finding tool: one finding per call,",
-  "self-contained and short. Do not repeat earlier findings. If a Main exchange gives you nothing new, reply in one line.",
+  "Record each finding with the agent_finding tool: one finding per call, self-contained and short. Do not repeat earlier",
+  "findings. If an exchange gives you nothing new, reply in one line. The user may also message you directly; answer them.",
+  "",
+  "Your standing job:",
+  job,
 ].join("\n");
 
 const HELP = `/agent: a supporting pi agent in a herdr pane beside this one (Main).
@@ -69,8 +73,10 @@ Open
 Opening runs in the command handler: it adds no turn and no message to Main.
 
 What the agent sees
-  Each prompt you submit in Main and each finished Main reply, as text, from this Main session only.
-  Never its own or another agent's conversation. A Main reply triggers its turn; a prompt is only added.
+  The job is its standing instructions; opening it runs nothing. From then on it gets each prompt you submit
+  in Main and each finished Main reply, as text, from this Main session only (never earlier messages, its own
+  or another agent's conversation). Each Main reply starts its turn; a prompt is only added.
+  You can also type to it directly in its pane.
 
 Findings (in the agent's pane)
   The agent records findings with its agent_finding tool; each gets a number: #1, #2, ...
@@ -124,12 +130,8 @@ export default function (pi: ExtensionAPI) {
 
     if (!isChild) return;
     // As a supporting agent: start on the job, then follow Main's feed from now on.
-    const fresh = !ctx.sessionManager.getEntries().some((e: any) => e.type === "message");
-    const job = join(CHILD_DIR!, "agents", CHILD_NAME!, "job.md");
-    if (event.reason === "startup" && fresh && existsSync(job)) {
-      const text = readFileSync(job, "utf8");
-      setTimeout(() => pi.sendUserMessage(text), 0);
-    }
+    // The job is standing instructions, not a prompt: nothing runs until Main's first finished reply.
+    ctx.ui.setWidget("agent-job", [`Watching Main from now on. Job: ${childJob().replace(/\s+/g, " ")}`]);
     watchedFeed = join(CHILD_DIR!, "feed.jsonl");
     let offset = existsSync(watchedFeed) ? statSync(watchedFeed).size : 0;
     let partial = "";
@@ -205,7 +207,7 @@ export default function (pi: ExtensionAPI) {
         return { block: true, reason: "Main's conversation reaches you only as [Main ...] messages; this folder is off limits." };
     });
     pi.on("before_agent_start", async (event) => {
-      event.systemPromptOptions.sections["supporting-agent"] = ROLE(CHILD_NAME!);
+      event.systemPromptOptions.sections["supporting-agent"] = ROLE(CHILD_NAME!, childJob());
     });
   }
 
