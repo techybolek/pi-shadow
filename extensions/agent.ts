@@ -81,7 +81,7 @@ Opening runs in the command handler: it adds no turn and no message to Main.
 What the agent sees
   The job is its standing instructions; opening it runs nothing. From then on it gets each prompt you submit
   in Main and each finished Main reply, as text, from this Main session only (never earlier messages, its own
-  or another agent's conversation). Each Main reply starts its turn; a prompt is only added.
+  or another agent's conversation). Each Main reply is sent with its prompt as one exchange and starts its turn.
   You can also type to it directly in its pane.
   It knows Main's session file and reads earlier history only when needed, with its main_history tool.
 
@@ -145,6 +145,7 @@ export default function (pi: ExtensionAPI) {
     watchedFeed = join(CHILD_DIR!, "feed.jsonl");
     let offset = existsSync(watchedFeed) ? statSync(watchedFeed).size : 0;
     let partial = "";
+    let pendingPrompts: string[] = [];
     watchFile(watchedFeed, { interval: 500 }, (cur) => {
       if (cur.size <= offset) return;
       const fd = openSync(watchedFeed!, "r");
@@ -154,12 +155,16 @@ export default function (pi: ExtensionAPI) {
       offset = cur.size;
       const lines = (partial + buf.toString("utf8")).split("\n");
       partial = lines.pop() ?? "";
+      // Prompts wait for Main's reply; then the exchange goes out as one message that carries the instruction,
+      // so the model does not mistake copied Main text for a request from the user.
       for (const line of lines.filter(Boolean)) {
         const { kind, text } = JSON.parse(line);
-        pi.sendMessage(
-          { customType: "agent-main-feed", content: `[Main ${kind}]\n${text}`, display: true },
-          { triggerTurn: kind === "reply", deliverAs: "followUp" },
-        );
+        if (kind === "prompt") { pendingPrompts.push(text); continue; }
+        const exchange = [...pendingPrompts.map((p) => `[Main prompt]\n${p}`), `[Main reply]\n${text}`].join("\n\n");
+        pendingPrompts = [];
+        const content = `Main just answered. Apply your standing job ("${childJob().replace(/\s+/g, " ")}") to this exchange now. ` +
+          `Do not ask the user anything: record findings with agent_finding, or reply "nothing to flag".\n\n${exchange}`;
+        pi.sendMessage({ customType: "agent-main-feed", content, display: true }, { triggerTurn: true, deliverAs: "followUp" });
       }
     });
   });
