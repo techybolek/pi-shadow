@@ -41,4 +41,4 @@ In Main, type /agent helloworld and press enter: Main shows a line containing "n
 ## Agent checks a factual Main answer without asking the user
 In Main, type /agent watch the responses for accuracy and press enter: Main shows a line beginning "Opened agent".
 View Main, type Use bash to list the files in this folder and tell me which file defines the /agent command. and press enter: Main answers.
-View the agent pane and wait for it to finish: it shows a message beginning "Main just answered", then the agent judges whether Main's answer is accurate, and it does not ask the user what to do or whether to verify.
+View the agent pane and wait for it to finish: the agent judges whether Main's answer is accurate, and it does not ask the user what to do or whether to verify.
