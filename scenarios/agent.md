@@ -20,7 +20,7 @@ View the new pane: it shows "Watching Main from now on. Job: Flag any Main reply
 
 ## Agent opened before Main has any messages
 In Main, type /agent --name reviewer Check Main's replies for errors and press enter: Main shows a line beginning "Opened agent".
-View the new pane and wait 20 seconds: it shows "Watching Main from now on", no assistant reply, no bash, read or ls tool calls, and no mention of a feed file or /tmp.
+View the new pane and wait 20 seconds: it shows "Watching Main from now on", no assistant reply and no bash, read or ls tool calls.
 View Main, type Reply with one word: hello and press enter: Main replies.
 View the agent pane and wait for it to finish: it shows "[Main reply]" and then a reply of its own about that exchange.
 
@@ -30,3 +30,10 @@ Type /agent --name ctx Check that Main's replies are consistent with what the us
 View the new pane: it shows "Watching Main from now on" and a line beginning "Main session:".
 View Main, type In one sentence, what is my project called and what language is it in? and press enter: Main answers with Zephyr and Rust.
 View the agent pane and wait for it to finish: it shows a main_history tool call, and its own reply mentions Zephyr or Rust.
+
+## The whole sentence is the job
+In Main, type /agent monitor the main threads responses for accuracy and press enter: Main shows a line beginning "Opened agent "agent-1"".
+View the new pane: it shows "Job: monitor the main threads responses for accuracy".
+View Main, type What is 17 times 23? Answer with the number only. and press enter: Main answers.
+View the agent pane and wait for it to finish: it reacts to the [Main reply] by judging whether the answer is accurate, and it does not ask the user what to do.
+In Main, type /agent helloworld and press enter: Main shows a line containing "no saved agent" and no new pane opens.
