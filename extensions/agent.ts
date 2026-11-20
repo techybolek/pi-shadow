@@ -11,7 +11,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renam
 import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { Type } from "typebox";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { SessionManager, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const DEFAULT_MODEL = "anthropic/claude-haiku-5-5";
 const ROOT = join(tmpdir(), `pi-agent-${userInfo().uid}`);
@@ -21,6 +21,7 @@ const RESERVED = new Set(["send"]);
 // Set by the parent through `herdr pane split --env` only in a supporting agent's pane.
 const CHILD_DIR = process.env.PI_AGENT_MAIN_DIR;
 const CHILD_NAME = process.env.PI_AGENT_NAME;
+const MAIN_SESSION = process.env.PI_AGENT_MAIN_SESSION; // Main's session file: the only history the agent may read
 const isChild = !!(CHILD_DIR && CHILD_NAME);
 const childJob = () => readFileSync(join(CHILD_DIR!, "agents", CHILD_NAME!, "job.md"), "utf8").trim();
 
@@ -55,6 +56,9 @@ const ROLE = (name: string, job: string) => [
   "the user reads your findings and decides which ones to send there.",
   "Record each finding with the agent_finding tool: one finding per call, self-contained and short. Do not repeat earlier",
   "findings. If an exchange gives you nothing new, reply in one line. The user may also message you directly; answer them.",
+  "Main's earlier conversation (before you opened) is NOT in your context. When a Main message refers to something you",
+  "do not know, call main_history once (search a keyword, or get the last messages). If it has nothing, carry on without it;",
+  "do not search anywhere else.",
   "",
   "Your standing job:",
   job,
@@ -77,6 +81,7 @@ What the agent sees
   in Main and each finished Main reply, as text, from this Main session only (never earlier messages, its own
   or another agent's conversation). Each Main reply starts its turn; a prompt is only added.
   You can also type to it directly in its pane.
+  It knows Main's session file and reads earlier history only when needed, with its main_history tool.
 
 Findings (in the agent's pane)
   The agent records findings with its agent_finding tool; each gets a number: #1, #2, ...
@@ -131,7 +136,10 @@ export default function (pi: ExtensionAPI) {
     if (!isChild) return;
     // As a supporting agent: start on the job, then follow Main's feed from now on.
     // The job is standing instructions, not a prompt: nothing runs until Main's first finished reply.
-    ctx.ui.setWidget("agent-job", [`Watching Main from now on. Job: ${childJob().replace(/\s+/g, " ")}`]);
+    ctx.ui.setWidget("agent-job", [
+      `Watching Main from now on. Job: ${childJob().replace(/\s+/g, " ")}`,
+      `Main session: ${MAIN_SESSION || "(not saved)"} — readable with main_history`,
+    ]);
     watchedFeed = join(CHILD_DIR!, "feed.jsonl");
     let offset = existsSync(watchedFeed) ? statSync(watchedFeed).size : 0;
     let partial = "";
@@ -199,6 +207,31 @@ export default function (pi: ExtensionAPI) {
         if (!existsSync(join(CHILD_DIR!, "agents"))) throw new Error("Main has closed its session; findings can no longer be sent.");
         appendFileSync(findingsFile, JSON.stringify({ n, text: params.text }) + "\n");
         return { content: [{ type: "text", text: `#${n}: ${params.text}` }], details: { n } };
+      },
+    });
+    // Main's earlier conversation, on demand, read only from Main's own session file.
+    pi.registerTool({
+      name: "main_history",
+      label: "Main history",
+      description: "Read Main's conversation (user prompts and Main's replies, text only) from Main's session file.",
+      promptSnippet: "Read Main's earlier conversation when you lack context",
+      parameters: Type.Object({
+        search: Type.Optional(Type.String({ description: "Return only messages containing this text (case-insensitive)" })),
+        last: Type.Optional(Type.Number({ description: "How many of the latest matching messages to return (default 20)" })),
+      }),
+      async execute(_id, params) {
+        const none = (why: string) => ({ content: [{ type: "text" as const, text: why }], details: {} });
+        // pi writes a session file only after its first message.
+        if (!MAIN_SESSION || !existsSync(MAIN_SESSION)) return none("Main has no earlier messages.");
+        let msgs = SessionManager.open(MAIN_SESSION).getBranch()
+          .filter((e: any) => e.type === "message" && (e.message.role === "user" || e.message.role === "assistant"))
+          .map((e: any) => `[${e.message.role === "user" ? "Main prompt" : "Main reply"}] ${textOf(e.message.content).trim()}`)
+          .filter((t: string) => !/^\[[^\]]+\] $/.test(t));
+        if (params.search) msgs = msgs.filter((t: string) => t.toLowerCase().includes(params.search!.toLowerCase()));
+        if (!msgs.length) return none(params.search ? `Nothing in Main's history mentions "${params.search}".` : "Main has no earlier messages.");
+        let out = msgs.slice(-(params.last ?? 20)).join("\n\n");
+        if (out.length > 20000) out = "…(older text cut)\n" + out.slice(-20000);
+        return none(out);
       },
     });
     // Guard: the agent's own tools may not name the state folder (feeds of any Main live there).
@@ -292,7 +325,8 @@ export default function (pi: ExtensionAPI) {
     let np: string | undefined;
     try {
       np = (await herdr("pane", "split", target, "--direction", direction, "--cwd", ctx.cwd, "--no-focus",
-        "--env", `PI_AGENT_MAIN_DIR=${dir}`, "--env", `PI_AGENT_NAME=${name}`)).pane.pane_id as string;
+        "--env", `PI_AGENT_MAIN_DIR=${dir}`, "--env", `PI_AGENT_NAME=${name}`,
+        "--env", `PI_AGENT_MAIN_SESSION=${ctx.sessionManager.getSessionFile() ?? ""}`)).pane.pane_id as string;
       await herdr("agent", "start", name, "--kind", "pi", "--pane", np, "--timeout", "60000",
         "--", ...ext, "--model", model, "--name", `agent:${name}`);
       writeFileSync(lastFile, np);

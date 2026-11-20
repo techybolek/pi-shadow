@@ -23,3 +23,10 @@ In Main, type /agent reviewer Check Main's replies for errors and press enter: M
 View the new pane and wait 20 seconds: it shows "Watching Main from now on", no assistant reply, no bash, read or ls tool calls, and no mention of a feed file or /tmp.
 View Main, type Reply with one word: hello and press enter: Main replies.
 View the agent pane and wait for it to finish: it shows "[Main reply]" and then a reply of its own about that exchange.
+
+## Agent reads Main's earlier history only when needed
+In Main, type Remember this: my project is called Zephyr and it is written in Rust. Reply OK. and press enter: Main replies.
+Type /agent ctx Check that Main's replies are consistent with what the user said earlier and press enter: Main shows a line beginning "Opened agent".
+View the new pane: it shows "Watching Main from now on" and a line beginning "Main session:".
+View Main, type In one sentence, what is my project called and what language is it in? and press enter: Main answers with Zephyr and Rust.
+View the agent pane and wait for it to finish: it shows a main_history tool call, and its own reply mentions Zephyr or Rust.
