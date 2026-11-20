@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const DEFAULT_MODEL = "anthropic/claude-haiku-4-5";
+const DEFAULT_MODEL = "anthropic/claude-haiku-5-5";
 const ROOT = join(tmpdir(), `pi-agent-${userInfo().uid}`);
 const NAME_RE = /^[a-z][a-z0-9_-]{0,31}$/;
 const RESERVED = new Set(["send"]);

@@ -10,7 +10,7 @@ Then `/reload`. Needs pi inside a herdr pane (`HERDR_ENV=1`). Built against pi 1
 
 ## Use
 - `/agent <name> <job>` / `/agent <name>` (saved: `agents/<name>/agent.md`, text under `## Job` only)
-- `--model <m>` (default `anthropic/claude-haiku-4-5`) or `--pick` for a picker
+- `--model <m>` (default `anthropic/claude-haiku-5-5`) or `--pick` for a picker
 - In the agent's pane: `/agent send main #2`, or `/agent send main` to pick with the arrow keys
 - `/agent` lists saved/open agents; `/agent --help` is the full guide. Argument hints show while typing.
 
