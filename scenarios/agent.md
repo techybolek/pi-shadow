@@ -17,3 +17,7 @@ In Main, type Use bash to create agents/terse/agent.md containing a "# terse" ti
 Type /agent te without pressing enter: a hint "terse" labelled "saved agent" appears. Clear the input with ctrl+u.
 Type /agent terse and press enter: Main shows "Opened agent".
 View the new pane: its first user message is exactly "Flag any Main reply longer than 50 words." and does not contain "Ignore this line" or "not part of job".
+
+## Agent opened before Main has any messages
+In Main, type /agent reviewer Check Main's replies for errors and press enter: Main shows "Opened agent".
+View the new pane and wait for the agent to finish: it replies in one line, its pane shows no bash, read or ls tool calls, and it does not mention any feed file, /tmp or replies such as "Canberra".

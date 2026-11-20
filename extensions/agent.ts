@@ -48,8 +48,9 @@ const savedJob = (cwd: string, name: string): string | undefined => {
 
 const ROLE = (name: string) => [
   `You are "${name}", a supporting agent running beside the user's main pi conversation ("Main").`,
-  "Messages labelled [Main prompt] and [Main reply] are copies of Main's conversation; they arrive by themselves as Main",
-  "works, so never ask the user to paste them. Until the first one arrives, acknowledge the job in one line. You cannot talk to Main;",
+  "Main's conversation reaches you ONLY as messages labelled [Main prompt] and [Main reply]; they arrive by themselves as Main",
+  "works. Never look for Main's conversation anywhere else: not in files, the repository, /tmp or session folders, and never",
+  "ask the user to paste it. Until the first [Main ...] message arrives, reply to the job in one line and use no tools. You cannot talk to Main;",
   "the user reads your findings and decides which ones to send there.",
   "Do the job in the first user message. Record each finding with the agent_finding tool: one finding per call,",
   "self-contained and short. Do not repeat earlier findings. If a Main exchange gives you nothing new, reply in one line.",
@@ -87,7 +88,7 @@ Examples
   /agent docs                     (uses agents/docs/agent.md)
   /agent send main #1
 
-Needs pi inside a herdr pane (HERDR_ENV=1). State: ${ROOT}/<session id>/`;
+Needs pi inside a herdr pane (HERDR_ENV=1). State: ${ROOT}/<session id>/ (deleted when Main quits)`;
 
 export default function (pi: ExtensionAPI) {
   let models: string[] = [];
@@ -151,9 +152,11 @@ export default function (pi: ExtensionAPI) {
     });
   });
 
-  pi.on("session_shutdown", async () => {
+  pi.on("session_shutdown", async (event) => {
     if (watchedQueue) unwatchFile(watchedQueue);
     if (watchedFeed) unwatchFile(watchedFeed);
+    // Main leaves no conversation copy behind once it quits or leaves this session.
+    if (event.reason !== "reload" && hasAgents()) rmSync(mainDir!, { recursive: true, force: true });
   });
 
   // ---- Main side: feed prompts and finished replies; attach queued findings to the next prompt.
@@ -191,9 +194,15 @@ export default function (pi: ExtensionAPI) {
       executionMode: "sequential",
       async execute(_id, params) {
         const n = readJsonl<Finding>(findingsFile).length + 1;
+        if (!existsSync(join(CHILD_DIR!, "agents"))) throw new Error("Main has closed its session; findings can no longer be sent.");
         appendFileSync(findingsFile, JSON.stringify({ n, text: params.text }) + "\n");
         return { content: [{ type: "text", text: `#${n}: ${params.text}` }], details: { n } };
       },
+    });
+    // Guard: the agent's own tools may not name the state folder (feeds of any Main live there).
+    pi.on("tool_call", async (event) => {
+      if (JSON.stringify(event.input).includes("pi-agent-"))
+        return { block: true, reason: "Main's conversation reaches you only as [Main ...] messages; this folder is off limits." };
     });
     pi.on("before_agent_start", async (event) => {
       event.systemPromptOptions.sections["supporting-agent"] = ROLE(CHILD_NAME!);
@@ -217,6 +226,7 @@ export default function (pi: ExtensionAPI) {
       f = findings.find((x) => x.n === Number(pick.slice(1, pick.indexOf(" "))));
     }
     const q = join(CHILD_DIR!, "queue.jsonl");
+    if (!existsSync(CHILD_DIR!)) return ctx.ui.notify("Main has closed its session; nothing to send to.", "error");
     appendFileSync(q, JSON.stringify({ from: CHILD_NAME, n: f!.n, text: f!.text } satisfies Queued) + "\n");
     const waiting = readJsonl<Queued>(q).length;
     ctx.ui.notify(`Queued #${f!.n} for Main (${waiting} waiting). It is attached to the next prompt you submit there.`, "info");
