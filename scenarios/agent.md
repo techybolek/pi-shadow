@@ -1,7 +1,7 @@
 ## Open, follow, number findings, send one back to Main
 In the pi pane (Main), type /agent --help and press enter: a guide mentioning "/agent send main" appears.
 Type /agent alone and press enter: it lists saved agents and a usage line.
-Type /agent reviewer Check every Main reply for factual errors and record each one as a finding, and press enter: Main shows "Opened agent" and no assistant reply appears in Main.
+Type /agent reviewer Check every Main reply for factual errors and record each one as a finding, and press enter: Main shows a line beginning "Opened agent" and no assistant reply appears in Main.
 View the new pane: it runs pi, shows "Watching Main from now on" with the job, and has no assistant reply and no tool calls.
 In Main, type What is the capital of Australia? Answer in one sentence. and press enter: Main answers.
 View the agent pane: it shows "[Main prompt]" with that question and "[Main reply]" with Main's answer.
@@ -15,11 +15,11 @@ Press enter in Main: the submitted prompt shows "Findings sent from supporting a
 ## Saved agent and typing hints
 In Main, type Use bash to create agents/terse/agent.md containing a "# terse" title, a line "Ignore this line.", a "## Job" heading with the line "Flag any Main reply longer than 50 words.", and a "## Notes" heading with "not part of job". Then reply DONE. and press enter: Main replies DONE.
 Type /agent te without pressing enter: a hint "terse" labelled "saved agent" appears. Clear the input with ctrl+u.
-Type /agent terse and press enter: Main shows "Opened agent".
+Type /agent terse and press enter: Main shows a line beginning "Opened agent".
 View the new pane: it shows "Watching Main from now on. Job: Flag any Main reply longer than 50 words." and does not show "Ignore this line" or "not part of job".
 
 ## Agent opened before Main has any messages
-In Main, type /agent reviewer Check Main's replies for errors and press enter: Main shows "Opened agent".
+In Main, type /agent reviewer Check Main's replies for errors and press enter: Main shows a line beginning "Opened agent".
 View the new pane and wait 20 seconds: it shows "Watching Main from now on", no assistant reply, no bash, read or ls tool calls, and no mention of a feed file or /tmp.
 View Main, type Reply with one word: hello and press enter: Main replies.
 View the agent pane and wait for it to finish: it shows "[Main reply]" and then a reply of its own about that exchange.
