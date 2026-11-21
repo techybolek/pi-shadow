@@ -1,11 +1,11 @@
 {
-  "name": "pi-agent",
+  "name": "pi-shadow",
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
   "type": "module",
-  "description": "/agent for pi in herdr: a supporting agent beside Main that follows Main's conversation and sends numbered findings back only on request.",
+  "description": "/shadow for pi in herdr: a shadow (supporting agent) beside Main that follows Main's conversation and sends numbered findings back only on request.",
   "keywords": ["pi-package", "pi", "herdr"],
-  "pi": { "extensions": ["./extensions/agent.ts"] },
+  "pi": { "extensions": ["./extensions/shadow.ts"] },
   "peerDependencies": { "@earendil-works/pi-coding-agent": "*" }
 }
