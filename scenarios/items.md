@@ -7,3 +7,10 @@ View the agent pane and wait for it to finish: the agent has replied about Main'
 In the agent pane, press up with the input empty: a picker titled "Send which item to Main?" appears with at least one entry.
 Press enter in the picker: the agent pane says "Sent #1 to Main".
 View Main: its last line says "1 agent note".
+
+## A reply with no list can still be sent as item 1
+In Main, type /agent reply to each Main answer with one plain sentence only, never a list or a heading, and press enter: Main shows a line containing "Opened agent".
+In Main, type What is the capital of Australia? Answer in one sentence. and press enter: Main answers.
+View the agent pane and wait for it to finish: the agent has replied with a plain sentence about Main's answer.
+In the agent pane, press up with the input empty: a picker titled "Send which item to Main?" appears with one entry.
+Press enter in the picker: the agent pane says "Sent #1 to Main".
