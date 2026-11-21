@@ -127,6 +127,7 @@ export default function (pi: ExtensionAPI) {
   let mainDir: string | undefined; // this session's dir when it is Main
   const watched: string[] = [];
   let ticker: ReturnType<typeof setInterval> | undefined;
+  let ended = false; // agent side: Main has exited
 
   const herdr = async (...a: string[]) => {
     const r = await pi.exec("herdr", a);
@@ -182,6 +183,19 @@ export default function (pi: ExtensionAPI) {
 
     // As a supporting agent.
     ctx.ui.setStatus("agent", `${CHILD_NAME} · watching Main`);
+    // Main is gone when its folder is deleted (quit, /new, /resume) or its process is dead (killed). /reload keeps both.
+    const mainAlive = () => {
+      if (!existsSync(join(CHILD_DIR!, "agents", CHILD_NAME!))) return false;
+      try { process.kill(Number(readFileSync(join(CHILD_DIR!, "pid"), "utf8")), 0); return true; }
+      catch (e: any) { return e.code === "EPERM"; }
+    };
+    ticker = setInterval(() => {
+      if (ended || mainAlive()) return;
+      ended = true;
+      for (const f of watched.splice(0)) unwatchFile(f);
+      ctx.ui.setStatus("agent", `${CHILD_NAME} · Main ended`);
+      ctx.ui.setWidget("agent-job", [`Main exited. This agent no longer follows it; what it said stays readable above.`, "Close this pane or /quit."]);
+    }, 1500);
     ctx.ui.setWidget("agent-job", [`Job: ${oneLine(childJob(), 160)}`, "↑ in an empty input picks an item to send to Main"]);
     let pending: string[] = []; // Main prompts waiting for the next step or reply
     const read = tail(join(CHILD_DIR!, "feed.jsonl"));
@@ -211,7 +225,7 @@ export default function (pi: ExtensionAPI) {
     ctx.ui.onTerminalInput((data: string) => {
       // Plain ↑ arrives as ESC[A or ESC O A, or with kitty key reporting as ESC[1;1:1A (press) / ESC[1;1:2A (repeat).
       if (picking || !/^\x1b(?:\[(?:1;1(?::[12])?)?A|OA)$/.test(data)) return undefined;
-      if (ctx.ui.getEditorText() !== "" || !latestItems.length) return undefined;
+      if (ctx.ui.getEditorText() !== "" || !latestItems.length || ended) return undefined;
       picking = true;
       void pickAndSend(ctx).finally(() => { picking = false; });
       return { consume: true };
@@ -292,7 +306,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   const sendNotes = (picked: { n: number; text: string }[], ctx: any) => {
-    if (!existsSync(CHILD_DIR!)) return ctx.ui.notify("Main has closed its session; nothing to send to.", "error");
+    if (ended || !existsSync(CHILD_DIR!)) return ctx.ui.notify("Main ended. Note not sent.", "error");
     const q = join(CHILD_DIR!, "notes.jsonl");
     for (const p of picked) appendFileSync(q, JSON.stringify({ from: CHILD_NAME!, n: p.n, text: p.text } satisfies Note) + "\n");
     ctx.ui.notify(`Sent ${picked.map((p) => `#${p.n}`).join(", ")} to Main (${readJsonl(q).length} note(s) waiting). ` +
@@ -317,6 +331,7 @@ export default function (pi: ExtensionAPI) {
       return ctx.ui.notify(`Sent to ${names.join(", ")}.`, "info");
     }
     if (target !== "main") return ctx.ui.notify("Usage: /agent send main [#N | #N,M]", "warning");
+    if (ended) return ctx.ui.notify("Main ended. Note not sent.", "error");
     if (!latestItems.length) return ctx.ui.notify("No numbered items yet: the agent has not answered with a numbered list.", "warning");
     if (!more[0]) return pickAndSend(ctx);
     const m = /^#\s*(\d{1,2}(?:\s*,\s*\d{1,2})*)$/.exec(more.join(" ").trim());
@@ -405,6 +420,7 @@ export default function (pi: ExtensionAPI) {
     mkdirSync(agentDir, { recursive: true });
     writeFileSync(join(agentDir, "job.md"), job);
     writeFileSync(join(agentDir, "model"), model);
+    writeFileSync(join(dir, "pid"), String(process.pid)); // lets an agent notice a Main that was killed without cleanup
 
     // The agent starts as a fork of Main's conversation, written by a separate SessionManager: Main is not modified.
     // pi writes the session file only after the first message; before that the agent simply starts empty.
