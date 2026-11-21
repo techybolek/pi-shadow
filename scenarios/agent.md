@@ -16,7 +16,7 @@ Press enter in Main: the submitted prompt shows "Notes from supporting agents" w
 In Main, type Use bash to create agents/terse/agent.md containing a "# terse" title, a line "Ignore this line.", a "## Job" heading with the line "Flag any Main reply longer than 50 words.", and a "## Notes" heading with "not part of job". Then reply DONE. and press enter: Main replies DONE.
 Type /agent te without pressing enter: a hint "terse" labelled "saved agent" appears. Clear the input with ctrl+u.
 Type /agent terse and press enter: Main shows a line beginning "Opened agent".
-View the new pane: it shows "Job: Flag any Main reply longer than 50 words.", its last line reads "terse · watching Main", and it does not show "Ignore this line" or "not part of job".
+View the new pane: its "Job:" line reads exactly "Job: Flag any Main reply longer than 50 words." with no other text on that line, and its last line reads "terse · watching Main". (Main's replayed conversation may show the file's other lines; only the Job line matters.)
 
 ## Agent opened before Main has any messages
 In Main, type /agent --name reviewer Check Main's replies for errors and press enter: Main shows a line beginning "Opened agent".
@@ -29,7 +29,7 @@ In Main, type Remember this: my project is called Zephyr and it is written in Ru
 Type /agent --name ctx Check that Main's replies are consistent with what the user said earlier and press enter: Main shows a line beginning "Opened agent".
 View the new pane: its last line reads "ctx · watching Main".
 View Main, type In one sentence, what is my project called and what language is it in? and press enter: Main answers with Zephyr and Rust.
-View the agent pane and wait for it to finish: its own reply mentions Zephyr or Rust, which only the earlier conversation said.
+In the agent pane, type What is the user's project called and in which language? and press enter: the agent's reply says Zephyr and Rust.
 
 ## The whole sentence is the job
 In Main, type /agent monitor the main threads responses for accuracy and press enter: Main shows a line beginning "Opened agent "agent-1"".

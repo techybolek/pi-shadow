@@ -204,7 +204,8 @@ export default function (pi: ExtensionAPI) {
     // ↑ in an empty input: pick an item of the latest reply that has items; Enter sends it to Main.
     let picking = false;
     ctx.ui.onTerminalInput((data: string) => {
-      if (picking || (data !== "\x1b[A" && data !== "\x1bOA")) return undefined;
+      // Plain ↑ arrives as ESC[A or ESC O A, or with kitty key reporting as ESC[1;1:1A (press) / ESC[1;1:2A (repeat).
+      if (picking || !/^\x1b(?:\[(?:1;1(?::[12])?)?A|OA)$/.test(data)) return undefined;
       if (ctx.ui.getEditorText() !== "" || !latestItems.length) return undefined;
       picking = true;
       void pickAndSend(ctx).finally(() => { picking = false; });
